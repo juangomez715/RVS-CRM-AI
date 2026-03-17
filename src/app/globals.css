@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-rvs-red: #D31313;
+  --color-rvs-red-dark: #910000;
+  --color-rvs-red-light: #FF4D4D;
+  --color-rvs-chrome: #E0E0E0;
+  --color-rvs-steel: #757575;
+  --color-rvs-dark: #121212;
+  --color-rvs-darker: #0A0A0A;
+}
+
+body {
+  /* 70% red tint, 30% gray, 20% black equivalent mixing as requested */
+  background: radial-gradient(circle at top right, #910000 0%, #1a1a1a 45%, #0A0A0A 100%);
+  background-attachment: fixed;
+}
+
+.rvs-glass {
+  background: rgba(18, 18, 18, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+.rvs-card {
+  background: linear-gradient(145deg, #1e1e1e, #121212);
+  border: 1px solid #333;
+}
