@@ -1,9 +1,9 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Settings2, Webhook, Bot, Mail, Key, CheckCircle2, XCircle, Linkedin, Shield, Loader2, Save, PlayCircle, SendHorizontal } from 'lucide-react';
 
-export default function SettingsPage() {
+function SettingsContent() {
     const searchParams = useSearchParams();
 
     // Status Loading
@@ -502,5 +502,13 @@ export default function SettingsPage() {
 
             </div>
         </div>
+    );
+}
+
+export default function SettingsPage() {
+    return (
+        <Suspense>
+            <SettingsContent />
+        </Suspense>
     );
 }
