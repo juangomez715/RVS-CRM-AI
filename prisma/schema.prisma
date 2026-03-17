@@ -1,0 +1,130 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("STAFF") // ADMIN or STAFF
+  createdAt DateTime @default(now())
+}
+
+
+model Lead {
+  id           String        @id @default(cuid())
+  name         String
+  company      String?
+  email        String?
+  phone        String?
+  status       String        @default("New") // New, Contacted, Qualified, Closed
+  aiStatus     String        @default("ACTIVE") // ACTIVE or PAUSED (Human Takeover)
+  score        Int?          @default(0)
+  aiNotes      String?
+  source       String?       // n8n, apollo, manual
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  interactions Interaction[]
+  sequences    LeadSequence[]
+}
+
+model Agent {
+  id           String        @id @default(cuid())
+  name         String
+  tone         String
+  systemPrompt String
+  llmModel     String        @default("qwen:0.5b")
+  isActive      Boolean       @default(true)
+  knowledgeBase String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Interaction {
+  id         String    @id @default(cuid())
+  leadId     String
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel    String    @default("Email") // Email, LinkedIn, SMS
+  sender     String    @default("HUMAN") // LEAD, AI, HUMAN
+  content    String
+  trackingId String?   @unique @default(cuid()) // Unique ID for open/click tracking
+  readAt     DateTime? // Null if unread, date if tracking pixel loaded
+  clickedAt  DateTime? // Null if no clicks, date if tracking link clicked
+  repliedAt  DateTime? // Null if no reply, date if lead replied
+  bouncedAt  DateTime? // Null if delivered, date if bounced
+  spamAt     DateTime? // Null if delivered, date if marked as spam
+  createdAt  DateTime  @default(now())
+}
+
+model Sequence {
+  id          String         @id @default(cuid())
+  name        String
+  goal        String?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  steps       SequenceStep[]
+  leads       LeadSequence[]
+}
+
+model SequenceStep {
+  id             String    @id @default(cuid())
+  sequenceId     String
+  sequence       Sequence  @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  dayOffset      Int       // 1 = Day 1, 3 = Day 3, etc.
+  subject        String    // Template or instruction for AI
+  content        String    // Template or instruction for AI
+  isAIGenerated  Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+}
+
+model LeadSequence {
+  id             String    @id @default(cuid())
+  leadId         String
+  lead           Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sequenceId     String
+  sequence       Sequence  @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  currentStep    Int       @default(0) // Index of the step they are currently on
+  status         String    @default("ACTIVE") // ACTIVE, COMPLETED, PAUSED (e.g. if they replied)
+  enrolledAt     DateTime  @default(now())
+  lastExecutedAt DateTime?
+}
+
+model RateLimit {
+  ip           String   @id
+  count        Int      @default(0)
+  firstAttempt DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, DATA_EXPORT, ADMIN_ACTION
+  userId    String?
+  userEmail String?
+  ip        String?
+  details   String?  // Additional context
+  createdAt DateTime @default(now())
+}
+
+model Integration {
+  id             String   @id @default(cuid())
+  provider       String   // "google", "linkedin"
+  accountId      String?  // Email address or LinkedIn username
+  accessToken    String?  // OAuth token or li_at cookie
+  refreshToken   String?  // If applicable (Google)
+  expiresAt      Int?     // Token expiration
+  isActive       Boolean  @default(true)
+  metadata       String?  // JSON string for limits, delays, etc.
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
