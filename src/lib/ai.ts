@@ -1,7 +1,7 @@
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-// Free model on OpenRouter — change if needed
-const OPENROUTER_FALLBACK_MODEL = 'meta-llama/llama-3.1-8b-instruct:free';
+// Free models on OpenRouter — upgrade to paid for better quality
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free';
 
 export interface OllamaResponse {
     model: string;
@@ -15,7 +15,7 @@ async function generateViaOllama(prompt: string, model: string): Promise<string>
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, prompt, stream: false }),
-        signal: AbortSignal.timeout(15000), // 15s timeout
+        signal: AbortSignal.timeout(15000),
     });
 
     if (!res.ok) throw new Error(`Ollama error: ${res.statusText}`);
@@ -26,7 +26,7 @@ async function generateViaOllama(prompt: string, model: string): Promise<string>
 
 async function generateViaOpenRouter(prompt: string): Promise<string> {
     if (!OPENROUTER_API_KEY) {
-        throw new Error('OPENROUTER_API_KEY is not set.');
+        throw new Error('OPENROUTER_API_KEY is not set. Get a free key at openrouter.ai/keys');
     }
 
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -38,7 +38,7 @@ async function generateViaOpenRouter(prompt: string): Promise<string> {
             'X-Title': 'RVS CRM AI',
         },
         body: JSON.stringify({
-            model: OPENROUTER_FALLBACK_MODEL,
+            model: OPENROUTER_MODEL,
             messages: [{ role: 'user', content: prompt }],
         }),
     });
@@ -52,21 +52,56 @@ async function generateViaOpenRouter(prompt: string): Promise<string> {
     return data.choices?.[0]?.message?.content ?? '';
 }
 
-export async function generateAIResponse(prompt: string, model: string = 'qwen3.5:0.8b'): Promise<string> {
-    // 1. Try Ollama first (local)
+// Check if Ollama is manually enabled via the Integration table
+async function isOllamaEnabled(): Promise<boolean> {
     try {
-        const response = await generateViaOllama(prompt, model);
-        return response;
-    } catch (ollamaError) {
-        console.warn('[AI] Ollama unavailable, falling back to OpenRouter:', (ollamaError as Error).message);
+        const { default: prisma } = await import('./db');
+        const rec = await prisma.integration.findFirst({
+            where: { provider: 'ollama', isActive: true }
+        });
+        return !!rec;
+    } catch {
+        return false;
+    }
+}
+
+export async function getAIProviderStatus(): Promise<{
+    provider: 'openrouter' | 'ollama' | 'none';
+    ollamaEnabled: boolean;
+    openrouterConfigured: boolean;
+    model: string;
+}> {
+    const ollamaEnabled = await isOllamaEnabled();
+    const openrouterConfigured = !!OPENROUTER_API_KEY;
+    const provider = ollamaEnabled ? 'ollama' : openrouterConfigured ? 'openrouter' : 'none';
+    return { provider, ollamaEnabled, openrouterConfigured, model: ollamaEnabled ? 'local' : OPENROUTER_MODEL };
+}
+
+export async function generateAIResponse(prompt: string, model: string = 'qwen3.5:0.8b'): Promise<string> {
+    const ollamaEnabled = await isOllamaEnabled();
+
+    // If Ollama is manually enabled, use it first (local inference)
+    if (ollamaEnabled) {
+        try {
+            const response = await generateViaOllama(prompt, model);
+            return response;
+        } catch (ollamaError) {
+            console.warn('[AI] Ollama unavailable, falling back to OpenRouter:', (ollamaError as Error).message);
+        }
     }
 
-    // 2. Fallback to OpenRouter (cloud, free tier)
+    // Primary default: OpenRouter (cloud, free tier, no local hardware needed)
     try {
         const response = await generateViaOpenRouter(prompt);
         return response;
-    } catch (fallbackError) {
-        console.error('[AI] OpenRouter fallback also failed:', (fallbackError as Error).message);
+    } catch (openRouterError) {
+        console.error('[AI] OpenRouter failed:', (openRouterError as Error).message);
+        // Last resort: try Ollama even if not explicitly enabled
+        if (!ollamaEnabled) {
+            try {
+                return await generateViaOllama(prompt, model);
+            } catch { /* ignore */ }
+        }
         return 'Error: AI engine is temporarily unavailable. Please try again later.';
     }
 }

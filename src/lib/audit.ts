@@ -17,9 +17,15 @@ export type AuditAction =
     | 'INTEGRATION_SAVED'
     | 'EMAIL_SENT'
     | 'WEBHOOK_N8N'
+    | 'WEBHOOK_N8N_CREATE'
+    | 'WEBHOOK_N8N_UPDATE_STATUS'
+    | 'WEBHOOK_N8N_QUALIFY'
+    | 'WEBHOOK_N8N_ENROLL'
+    | 'WEBHOOK_N8N_BULK'
     | 'WEBHOOK_INCOMING'
     | 'EMAIL_BOUNCED'
-    | 'EMAIL_SPAM';
+    | 'EMAIL_SPAM'
+    | 'LEADS_CSV_IMPORT';
 
 interface AuditParams {
     action: AuditAction;

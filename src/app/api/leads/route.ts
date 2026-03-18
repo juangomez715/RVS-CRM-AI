@@ -17,27 +17,42 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const search = searchParams.get('search') || '';
         const status = searchParams.get('status') || '';
+        const source = searchParams.get('source') || '';
+        const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+        const limit = Math.min(200, Math.max(10, parseInt(searchParams.get('limit') || '50')));
+        const skip = (page - 1) * limit;
 
-        const leads = await prisma.lead.findMany({
-            where: {
-                AND: [
-                    search ? {
-                        OR: [
-                            { name: { contains: search } },
-                            { email: { contains: search } },
-                            { company: { contains: search } },
-                        ]
-                    } : {},
-                    status ? { status } : {},
-                ]
-            },
-            orderBy: { createdAt: 'desc' },
-            include: {
-                _count: { select: { interactions: true, sequences: true } }
-            }
+        const where = {
+            AND: [
+                search ? {
+                    OR: [
+                        { name: { contains: search } },
+                        { email: { contains: search } },
+                        { company: { contains: search } },
+                    ]
+                } : {},
+                status ? { status } : {},
+                source ? { source } : {},
+            ]
+        };
+
+        const [leads, total] = await Promise.all([
+            prisma.lead.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+                include: {
+                    _count: { select: { interactions: true, sequences: true } }
+                }
+            }),
+            prisma.lead.count({ where })
+        ]);
+
+        return Response.json({
+            leads,
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) }
         });
-
-        return Response.json(leads);
     } catch (error) {
         console.error('[Leads] GET error:', error);
         return Response.json({ error: 'Failed to fetch leads' }, { status: 500 });

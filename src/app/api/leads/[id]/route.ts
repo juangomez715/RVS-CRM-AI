@@ -31,7 +31,7 @@ export async function GET(
 }
 
 const ALLOWED_FIELDS = ['name', 'company', 'email', 'phone', 'status', 'aiStatus', 'score', 'aiNotes', 'source'] as const;
-const VALID_STATUSES = ['New', 'Contacted', 'Qualified', 'Closed'];
+const VALID_STATUSES = ['New', 'Contacted', 'Qualified', 'Meeting', 'Closed'];
 const VALID_AI_STATUSES = ['ACTIVE', 'PAUSED'];
 
 export async function PATCH(

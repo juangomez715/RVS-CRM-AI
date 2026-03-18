@@ -322,6 +322,22 @@ function SettingsContent() {
 
                 {/* 1. Real SMTP EMAIL AUTHENTICATION */}
                 <div className="rvs-card border border-rvs-steel/20 rounded-xl shadow-2xl relative overflow-hidden flex flex-col">
+                    {/* Gmail quick-fill helper */}
+                    {!mailboxConnected && (
+                        <div className="mx-6 mt-4 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Quick: Connect Gmail via SMTP</p>
+                                <p className="text-[8px] text-rvs-steel/60 mt-0.5 font-mono">Pre-fills Gmail settings. You still need a 16-digit App Password from Google.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => { setSmtpHost('smtp.gmail.com'); setSmtpPort('465'); setSmtpSecure(true); }}
+                                className="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded hover:bg-blue-500/20 transition-all whitespace-nowrap"
+                            >
+                                Auto-fill Gmail
+                            </button>
+                        </div>
+                    )}
                     <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500 rounded-full mix-blend-screen filter blur-[100px] opacity-10 pointer-events-none"></div>
 
                     <div className="p-6 border-b border-rvs-steel/20 flex items-start justify-between">
@@ -484,18 +500,39 @@ function SettingsContent() {
                         </form>
                     </div>
 
-                    {/* Ingestion Webhook URL */}
+                    {/* N8N Webhook Hub */}
                     <div className="rvs-card border border-rvs-steel/20 rounded-xl shadow-2xl p-6 h-fit shrink-0 bg-rvs-darker">
                         <div className="flex items-center gap-3 mb-4">
                             <Webhook className="text-purple-400" size={20} />
-                            <h2 className="text-sm font-black text-white uppercase tracking-widest">n8n Ingestion Webhook</h2>
+                            <h2 className="text-sm font-black text-white uppercase tracking-widest">n8n Webhook Hub</h2>
                         </div>
-                        <p className="text-[10px] text-rvs-steel uppercase tracking-widest mb-2 font-mono">POST Payload JSON Payload format to this exact path:</p>
-                        <div className="flex gap-2">
-                            <input type="text" readOnly value="http://localhost:3000/api/webhooks/n8n" className="flex-1 bg-black text-purple-200 border border-purple-500/30 rounded p-2 text-xs font-mono select-all focus:outline-none" />
-                            <button onClick={handleCopyWebhook} className="bg-purple-600 hover:bg-purple-500 transition-colors text-white px-4 py-2 rounded font-bold uppercase tracking-widest text-[#10px] shadow-lg flex items-center gap-1">
-                                {copied ? <CheckCircle2 size={14} /> : "Copy"}
-                            </button>
+                        <p className="text-[10px] text-rvs-steel uppercase tracking-widest mb-3 font-mono">All endpoints require header: <span className="text-purple-300">x-webhook-secret: {'{N8N_WEBHOOK_SECRET}'}</span></p>
+
+                        <div className="space-y-3">
+                            {[
+                                { label: 'Lead Ingestion (legacy)', url: '/api/webhooks/n8n', desc: 'Create lead + AI qualify' },
+                                { label: 'Create Lead', url: '/api/webhooks/n8n/action?type=create_lead', desc: 'Create + qualify lead' },
+                                { label: 'Update Status', url: '/api/webhooks/n8n/action?type=update_status', desc: 'Change lead status by email/id' },
+                                { label: 'Re-Qualify Lead', url: '/api/webhooks/n8n/action?type=qualify', desc: 'Run AI qualification again' },
+                                { label: 'Enroll Sequence', url: '/api/webhooks/n8n/action?type=enroll_sequence', desc: 'Add lead to email sequence' },
+                                { label: 'Bulk Create', url: '/api/webhooks/n8n/action?type=bulk_create', desc: 'Import array of leads (max 5000)' },
+                                { label: 'Tag Source', url: '/api/webhooks/n8n/action?type=tag_source', desc: 'Update lead source tag' },
+                            ].map(({ label, url, desc }) => (
+                                <div key={url} className="bg-black/40 border border-purple-500/10 rounded-lg p-3">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="text-[9px] font-black text-purple-300 uppercase tracking-widest">{label}</span>
+                                        <span className="text-[8px] text-rvs-steel/60 font-mono">{desc}</span>
+                                    </div>
+                                    <div className="flex gap-2 mt-1">
+                                        <input type="text" readOnly value={`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${url}`}
+                                            className="flex-1 bg-black text-purple-200 border border-purple-500/20 rounded p-1.5 text-[9px] font-mono select-all focus:outline-none" />
+                                        <button onClick={() => { navigator.clipboard.writeText(`http://localhost:3000${url}`); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                                            className="bg-purple-600/40 hover:bg-purple-600 transition-colors text-purple-200 px-3 py-1.5 rounded text-[8px] font-bold uppercase">
+                                            {copied ? '✓' : 'Copy'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
