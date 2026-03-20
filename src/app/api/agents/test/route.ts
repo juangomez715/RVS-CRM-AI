@@ -8,11 +8,7 @@ export async function POST(request: Request) {
             return new Response(JSON.stringify({ error: "Message is required" }), { status: 400 });
         }
 
-        // Construct a simple prompt for the raw generation endpoint
-        // Qwen uses ChatML typically, but for a simple raw prompt we can structure it like this:
-        const fullPrompt = `${systemPrompt ? `System: ${systemPrompt}\n\n` : ''}User: ${message}\n\nAssistant:`;
-
-        const responseText = await generateAIResponse(fullPrompt, model);
+        const responseText = await generateAIResponse(message, model, systemPrompt);
 
         return new Response(JSON.stringify({ response: responseText }), {
             status: 200,

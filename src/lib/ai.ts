@@ -24,10 +24,14 @@ async function generateViaOllama(prompt: string, model: string): Promise<string>
     return data.response;
 }
 
-async function generateViaOpenRouter(prompt: string): Promise<string> {
+async function generateViaOpenRouter(prompt: string, systemPrompt?: string): Promise<string> {
     if (!OPENROUTER_API_KEY) {
         throw new Error('OPENROUTER_API_KEY is not set. Get a free key at openrouter.ai/keys');
     }
+
+    const messages: { role: string; content: string }[] = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+    messages.push({ role: 'user', content: prompt });
 
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -39,7 +43,7 @@ async function generateViaOpenRouter(prompt: string): Promise<string> {
         },
         body: JSON.stringify({
             model: OPENROUTER_MODEL,
-            messages: [{ role: 'user', content: prompt }],
+            messages,
         }),
     });
 
@@ -77,13 +81,15 @@ export async function getAIProviderStatus(): Promise<{
     return { provider, ollamaEnabled, openrouterConfigured, model: ollamaEnabled ? 'local' : OPENROUTER_MODEL };
 }
 
-export async function generateAIResponse(prompt: string, model: string = 'qwen3.5:0.8b'): Promise<string> {
+export async function generateAIResponse(prompt: string, model: string = 'qwen3.5:0.8b', systemPrompt?: string): Promise<string> {
     const ollamaEnabled = await isOllamaEnabled();
 
     // If Ollama is manually enabled, use it first (local inference)
     if (ollamaEnabled) {
         try {
-            const response = await generateViaOllama(prompt, model);
+            // Ollama /api/generate doesn't support separate system messages — prepend if present
+            const fullPrompt = systemPrompt ? `System: ${systemPrompt}\n\nUser: ${prompt}\n\nAssistant:` : prompt;
+            const response = await generateViaOllama(fullPrompt, model);
             return response;
         } catch (ollamaError) {
             console.warn('[AI] Ollama unavailable, falling back to OpenRouter:', (ollamaError as Error).message);
@@ -92,14 +98,15 @@ export async function generateAIResponse(prompt: string, model: string = 'qwen3.
 
     // Primary default: OpenRouter (cloud, free tier, no local hardware needed)
     try {
-        const response = await generateViaOpenRouter(prompt);
+        const response = await generateViaOpenRouter(prompt, systemPrompt);
         return response;
     } catch (openRouterError) {
         console.error('[AI] OpenRouter failed:', (openRouterError as Error).message);
         // Last resort: try Ollama even if not explicitly enabled
         if (!ollamaEnabled) {
             try {
-                return await generateViaOllama(prompt, model);
+                const fullPrompt = systemPrompt ? `System: ${systemPrompt}\n\nUser: ${prompt}\n\nAssistant:` : prompt;
+                return await generateViaOllama(fullPrompt, model);
             } catch { /* ignore */ }
         }
         return 'Error: AI engine is temporarily unavailable. Please try again later.';
